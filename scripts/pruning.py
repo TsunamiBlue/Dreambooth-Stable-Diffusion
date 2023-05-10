@@ -139,41 +139,41 @@ def get_parser(**parser_kwargs):
     )
 
     parser.add_argument(
-        "--datadir_in_name", 
-        type=str2bool, 
-        nargs="?", 
-        const=True, 
-        default=True, 
+        "--datadir_in_name",
+        type=str2bool,
+        nargs="?",
+        const=True,
+        default=True,
         help="Prepend the final directory in the data_root to the output directory name")
 
-    parser.add_argument("--actual_resume", 
-        type=str,
-        required=True,
-        help="Path to model to actually resume from")
+    parser.add_argument("--actual_resume",
+                        type=str,
+                        required=True,
+                        help="Path to model to actually resume from")
 
-    parser.add_argument("--data_root", 
-        type=str, 
-        required=True, 
-        help="Path to directory with training images")
-    
-    parser.add_argument("--reg_data_root", 
-        type=str, 
-        required=True, 
-        help="Path to directory with regularization images")
+    parser.add_argument("--data_root",
+                        type=str,
+                        required=True,
+                        help="Path to directory with training images")
 
-    parser.add_argument("--embedding_manager_ckpt", 
-        type=str, 
-        default="", 
-        help="Initialize embedding manager from a checkpoint")
+    parser.add_argument("--reg_data_root",
+                        type=str,
+                        required=True,
+                        help="Path to directory with regularization images")
 
-    parser.add_argument("--class_word", 
-        type=str, 
-        default="dog",
-        help="Placeholder token which will be used to denote the concept in future prompts")
+    parser.add_argument("--embedding_manager_ckpt",
+                        type=str,
+                        default="",
+                        help="Initialize embedding manager from a checkpoint")
 
-    parser.add_argument("--init_word", 
-        type=str, 
-        help="Word to use as source for initial token embedding")
+    parser.add_argument("--class_word",
+                        type=str,
+                        default="dog",
+                        help="Placeholder token which will be used to denote the concept in future prompts")
+
+    parser.add_argument("--init_word",
+                        type=str,
+                        help="Word to use as source for initial token embedding")
 
     return parser
 
@@ -222,7 +222,7 @@ class ConcatDataset(Dataset):
 
     def __len__(self):
         return min(len(d) for d in self.datasets)
-    
+
 class DataModuleFromConfig(pl.LightningDataModule):
     def __init__(self, batch_size, train=None, reg = None, validation=None, test=None, predict=None,
                  wrap=False, num_workers=None, shuffle_test_loader=False, use_worker_init_fn=False,
@@ -236,9 +236,9 @@ class DataModuleFromConfig(pl.LightningDataModule):
             self.dataset_configs["train"] = train
         if reg is not None:
             self.dataset_configs["reg"] = reg
-        
+
         self.train_dataloader = self._train_dataloader
-        
+
         if validation is not None:
             self.dataset_configs["validation"] = validation
             self.val_dataloader = partial(self._val_dataloader, shuffle=shuffle_val_dataloader)
@@ -556,6 +556,9 @@ if __name__ == "__main__":
     parser = Trainer.add_argparse_args(parser)
 
     opt, unknown = parser.parse_known_args()
+    print("opt args: ",opt)
+    print(type(opt))
+    print(unknown)
     if opt.name and opt.resume:
         raise ValueError(
             "-n/--name and -r/--resume cannot be specified both."
@@ -579,6 +582,7 @@ if __name__ == "__main__":
         opt.resume_from_checkpoint = ckpt
         base_configs = sorted(glob.glob(os.path.join(logdir, "configs/*.yaml")))
         opt.base = base_configs + opt.base
+        # print(opt.base)
         _tmp = logdir.split("/")
         nowname = _tmp[-1]
     else:
@@ -593,7 +597,7 @@ if __name__ == "__main__":
 
         if opt.datadir_in_name:
             now = os.path.basename(os.path.normpath(opt.data_root)) + now
-            
+
         nowname = now + name + opt.postfix
         logdir = os.path.join(opt.logdir, nowname)
 
@@ -620,8 +624,11 @@ if __name__ == "__main__":
             gpuinfo = trainer_config["gpus"]
             print(f"Running on GPUs {gpuinfo}")
             cpu = False
+
+        # trainer_config["accelerator"]='dp'
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
+        # print(trainer_config)
 
         # model
 
@@ -631,7 +638,7 @@ if __name__ == "__main__":
 
         # if opt.init_word:
         #     config.model.params.personalization_config.params.initializer_words[0] = opt.init_word
-            
+
         config.data.params.train.params.placeholder_token = opt.class_word
         config.data.params.reg.params.placeholder_token = opt.class_word
         config.data.params.validation.params.placeholder_token = opt.class_word
@@ -767,6 +774,22 @@ if __name__ == "__main__":
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir  ###
 
+        # print(model)
+        # for idx,key in enumerate(model.state_dict().keys()):
+        #     print(idx,key,model.state_dict()[key],['requires_grad'])
+
+        # for idx,key in enumerate(model.state_dict().keys()):
+        #     if "diffusion_model.out" not in key:
+        #         model.state_dict()[key].requires_grad=False
+        #     else:
+        #         model.state_dict()[key].requires_grad=True
+        #         print(model.state_dict()[key].requires_grad)
+        #     print(idx,key,model.state_dict()[key].requires_grad,"diffusion_model.out" in key)
+
+
+        print(type(model.state_dict()))
+        # print(model.optimizers())
+
         # data
         config.data.params.train.params.data_root = opt.data_root
         config.data.params.reg.params.data_root = opt.reg_data_root
@@ -806,32 +829,11 @@ if __name__ == "__main__":
             print(f"Setting learning rate to {model.learning_rate:.2e}")
 
 
-        # allow checkpointing via USR1
-        def melk(*args, **kwargs):
-            # run all checkpoint hooks
-            if trainer.global_rank == 0:
-                print("Summoning checkpoint.")
-                ckpt_path = os.path.join(ckptdir, "last.ckpt")
-                trainer.save_checkpoint(ckpt_path)
-
-
-        def divein(*args, **kwargs):
-            if trainer.global_rank == 0:
-                import pudb;
-                pudb.set_trace()
-
-
-        import signal
-
-        signal.signal(signal.SIGTERM, melk)
-        signal.signal(signal.SIGTERM, divein)
-
         # run
         if opt.train:
             try:
                 trainer.fit(model, data)
             except Exception:
-                melk()
                 raise
         if not opt.no_test and not trainer.interrupted:
             trainer.test(model, data)
