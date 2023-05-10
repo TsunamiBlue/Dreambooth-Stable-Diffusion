@@ -10,7 +10,8 @@ from ldm.util import instantiate_from_config
 
 from omegaconf import OmegaConf
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo" # Windows backend
 criterion_mse = torch.nn.MSELoss()
 criterion_ce = torch.nn.CrossEntropyLoss()

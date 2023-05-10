@@ -556,9 +556,9 @@ if __name__ == "__main__":
     parser = Trainer.add_argparse_args(parser)
 
     opt, unknown = parser.parse_known_args()
-    print("opt args: ",opt)
-    print(type(opt))
-    print(unknown)
+    # print("opt args: ",opt)
+    # print(type(opt))
+    # print(unknown)
     if opt.name and opt.resume:
         raise ValueError(
             "-n/--name and -r/--resume cannot be specified both."
@@ -787,7 +787,7 @@ if __name__ == "__main__":
         #     print(idx,key,model.state_dict()[key].requires_grad,"diffusion_model.out" in key)
 
 
-        print(type(model.state_dict()))
+        # print(type(model.state_dict()))
         # print(model.optimizers())
 
         # data
